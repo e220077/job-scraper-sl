@@ -14,11 +14,15 @@ EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER')
 
 # Known Government Salary Code Mapping (2025/2026 approx basic)
 SALARY_CODES = {
-    'MA 4': 64320,  # Starting basic (approx)
-    'MM 1-1': 91690, # Starting basic (approx)
+    'MA 4': 64320,
+    'MM 1-1': 91690,
     'MA 2-2': 50540,
     'MM 2-1': 105000,
-    'SL 1-1': 120000
+    'SL 1-1': 120000,
+    'SL 1': 82150,    # New 2025 Class 1
+    'MN 3': 52250,    # Entry level
+    'MN 5': 58660,    # Mid level
+    'SL 3': 156000    # Special grade
 }
 
 def extract_salary_value(text):
@@ -49,7 +53,6 @@ def scrape_governmentjob_lk():
         soup = BeautifulSoup(response.text, 'html.parser')
         
         jobs = []
-        # Find job articles/entries
         for entry in soup.find_all('article'):
             title_tag = entry.find('h2')
             link_tag = entry.find('a')
@@ -60,7 +63,6 @@ def scrape_governmentjob_lk():
             job_title = title_tag.get_text(strip=True)
             job_link = link_tag['href']
             
-            # Navigate to job details to find salary
             details_res = requests.get(job_link, timeout=10)
             details_soup = BeautifulSoup(details_res.text, 'html.parser')
             content = details_soup.get_text()
@@ -78,6 +80,48 @@ def scrape_governmentjob_lk():
         return jobs
     except Exception as e:
         print(f"Error scraping governmentjob.lk: {e}")
+        return []
+
+def scrape_gazette_lk():
+    """
+    Scrapes IT category jobs from gazette.lk.
+    """
+    url = "https://www.gazette.lk/category/it-jobs/"
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        jobs = []
+        # gazette.lk uses different structure, common pattern for WP themes
+        for entry in soup.find_all('div', class_='listing-content'):
+            title_tag = entry.find('h3')
+            link_tag = entry.find('a')
+            
+            if not title_tag or not link_tag:
+                continue
+                
+            job_title = title_tag.get_text(strip=True)
+            job_link = link_tag['href']
+            
+            details_res = requests.get(job_link, headers=headers, timeout=10)
+            details_soup = BeautifulSoup(details_res.text, 'html.parser')
+            content = details_soup.get_text()
+            
+            salary = extract_salary_value(content)
+            
+            if salary > BASELINE_SALARY:
+                jobs.append({
+                    'title': job_title,
+                    'link': job_link,
+                    'salary': salary,
+                    'source': 'gazette.lk'
+                })
+        
+        return jobs
+    except Exception as e:
+        print(f"Error scraping gazette.lk: {e}")
         return []
 
 def send_email(jobs):
@@ -121,5 +165,7 @@ def send_email(jobs):
 
 if __name__ == "__main__":
     print("Starting automated job search...")
-    found_jobs = scrape_governmentjob_lk()
+    found_jobs = []
+    found_jobs.extend(scrape_governmentjob_lk())
+    found_jobs.extend(scrape_gazette_lk())
     send_email(found_jobs)

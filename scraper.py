@@ -46,9 +46,10 @@ def scrape_governmentjob_lk():
     """
     Scrapes IT category jobs from governmentjob.lk.
     """
-    url = "https://governmentjob.lk/category/information-technology/"
+    url = "https://governmentjob.lk/category/it-jobs/"
     try:
-        response = requests.get(url, timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
@@ -63,7 +64,7 @@ def scrape_governmentjob_lk():
             job_title = title_tag.get_text(strip=True)
             job_link = link_tag['href']
             
-            details_res = requests.get(job_link, timeout=10)
+            details_res = requests.get(job_link, headers=headers, timeout=10)
             details_soup = BeautifulSoup(details_res.text, 'html.parser')
             content = details_soup.get_text()
             
